@@ -50,4 +50,5 @@ Method of input:
 
 If you are guessing 12345 you will type 12345 and then you will press enter.
 
-If you enter the character: e, the number will be revealed and you lose.
+to exit in python, enter the character: e, the number will be revealed and you lose.
+to exit in c, enter the 000, the number will be revealed and you lose.
