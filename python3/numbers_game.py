@@ -75,7 +75,7 @@ class NumGame ():
         f = True
         while f:
             num = random.randint(10000, 99999)
-            print(num)
+            # print(num)
             f = self.check_input(str(num))
             f = not f
         return num
