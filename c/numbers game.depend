@@ -1,0 +1,11 @@
+# depslib dependency file v1.0
+1405911401 source:d:\google drive\numbers game\main.c
+	<stdio.h>
+	<stdlib.h>
+	<time.h>
+
+1406304658 source:d:\google drive\numbers game\numbers game\main.c
+	<stdio.h>
+	<stdlib.h>
+	<time.h>
+
