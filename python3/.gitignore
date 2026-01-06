@@ -1,0 +1,29 @@
+# Python
+__pycache__/*
+*.py[cod]
+*$py.class
+
+# Distribution / Packaging
+dist/
+build/
+*.spec
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Local settings / persistence
+high_scores.json
+.vscode/
+.idea/
+.DS_Store
