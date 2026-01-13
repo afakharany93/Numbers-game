@@ -538,20 +538,29 @@ class NumbersGameGUI(ttk.Frame):
                 "place": place
             })
             
-            # Log opponent's guess
-            self._log(f"❓ {self.opponent_name} guessed: {data} → {count}/{place}")
+            # Log opponent's guess in their panel (player=2)
+            if place == self.digit_count:
+                emoji = "🎉"
+            elif place > 0:
+                emoji = "🟡"
+            elif count > 0:
+                emoji = "🟠"
+            else:
+                emoji = "⚫"
+            self._log(f"{emoji} {data} → {count}/{place}", player=2)
             
             # Check if opponent won
             if place == self.digit_count:
                 if hasattr(self, 'i_won_online') and self.i_won_online:
                     # I already won - now opponent also won = DRAW
-                    self._log(f"\n🤝 IT'S A DRAW!")
+                    self._log(f"\n🤝 IT'S A DRAW!", player=0)
                     Messagebox.show_info("Both players cracked the code!", "Draw!")
                 else:
                     # Opponent won first - I get one more guess
                     self.opponent_won_online = True
-                    self._log(f"\n🎯 {self.opponent_name} cracked your code!")
-                    self._log("⏳ You have one final guess for a draw!")
+                    self._log(f"\n🎯 {self.opponent_name} cracked your code!", player=1)
+                    self._log("⏳ You have one final guess for a draw!", player=1)
+                    self._log(f"\n🏆 Cracked the code!", player=2)
                 
         elif msg_type == "RESULT":
             # Received result for my guess
@@ -559,31 +568,35 @@ class NumbersGameGUI(ttk.Frame):
             count = data["count"]
             place = data["place"]
             
-            # Log my result
+            # Determine emoji
+            if place == self.digit_count:
+                emoji = "🎉"
+            elif place > 0:
+                emoji = "🟡"
+            elif count > 0:
+                emoji = "🟠"
+            else:
+                emoji = "⚫"
+                
+            # Log my result in my panel (player=1)
+            self._log(f"{emoji} {guess} → {count}/{place}", player=1)
+            
+            # Handle win conditions
             if place == self.digit_count:
                 # I won!
                 if hasattr(self, 'opponent_won_online') and self.opponent_won_online:
                     # Opponent already won - we both won = DRAW
-                    self._log(f"🎉 {guess} → {count}/{place}")
-                    self._log(f"\n🤝 IT'S A DRAW!")
+                    self._log(f"\n🤝 IT'S A DRAW!", player=0)
                     Messagebox.show_info("Both players cracked the code!", "Draw!")
                 else:
                     # I won first - opponent gets one more guess
                     self.i_won_online = True
-                    self._log(f"🎉 {guess} → {count}/{place}")
-                    self._log(f"\n🎯 You cracked the code!")
-                    self._log(f"⏳ Waiting for {self.opponent_name}'s final guess...")
+                    self._log(f"\n🎯 You cracked the code!", player=1)
+                    self._log(f"⏳ Waiting for {self.opponent_name}'s final guess...", player=2)
             elif hasattr(self, 'opponent_won_online') and self.opponent_won_online:
                 # I missed my final chance - opponent wins
-                self._log(f"⚫ {guess} → {count}/{place}")
-                self._log(f"\n🏆 {self.opponent_name} wins!")
+                self._log(f"\n🏆 {self.opponent_name} wins!", player=0)
                 Messagebox.show_info(f"{self.opponent_name} cracked your code!", "Game Over")
-            elif place > 0:
-                self._log(f"🟡 {guess} → {count}/{place}")
-            elif count > 0:
-                self._log(f"🟠 {guess} → {count}/{place}")
-            else:
-                self._log(f"⚫ {guess} → {count}/{place}")
                 
     def _initiate_online_setup(self) -> None:
         """Host sends setup request to both players."""
@@ -622,8 +635,22 @@ class NumbersGameGUI(ttk.Frame):
         # Reset win tracking for fair play
         self.i_won_online = False
         self.opponent_won_online = False
-        self._log(f"\n🎯 Guess your opponent's {self.digit_count}-digit number!")
-        self._log("Enter your guess below.\n")
+        
+        # Enable 2-player mode flag for split view logging
+        self.two_player_mode = True
+        
+        # Set player names for display
+        my_name = self.player1_name if self.is_host else self.player2_name
+        self.player1_name = "You"
+        self.player2_name = self.opponent_name
+        
+        # Switch to split view
+        self._switch_to_split_view()
+        
+        self._log(f"🎯 Guess {self.opponent_name}'s number!", player=1)
+        self._log("Enter your guess below.\n", player=1)
+        self._log(f"🎯 {self.opponent_name} is guessing...", player=2)
+        self._log("Watch their progress here.\n", player=2)
 
     def _ask_player_names(self) -> None:
         """Ask for player names in 2-player mode."""
@@ -727,7 +754,6 @@ class NumbersGameGUI(ttk.Frame):
         # Handle Online mode - send guess to opponent
         if self.online_mode and self.network and self.network.connected:
             self.network.send("GUESS", str(processed_val))
-            self._log(f"📤 You guessed: {processed_val}")
             self.tries += 1
             return
         
