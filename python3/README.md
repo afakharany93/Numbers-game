@@ -59,6 +59,7 @@ python -m numbers_game.ui.cli
 ```
 python3/
 ├── main.py                    # GUI entry point
+├── gui_numbers_game.py        # Main GUI implementation
 ├── numbers_game/              # Main package
 │   ├── core/                  # Game logic
 │   │   ├── engine.py         # GameEngine class
@@ -72,8 +73,8 @@ python3/
 │       └── help_text.py      # Game instructions
 ├── tests/                     # Unit tests (18 tests)
 │   └── test_engine.py
-├── game_engine.py             # Legacy (backward compat)
-└── gui_numbers_game.py        # Legacy GUI entry point
+├── build_windows.bat          # Build Windows executable
+└── build_linux.sh             # Build Linux executable
 ```
 
 ## 🧪 Running Tests

@@ -9,10 +9,10 @@ from ttkbootstrap.scrolled import ScrolledText
 from ttkbootstrap.dialogs import Messagebox
 from tkinter import simpledialog
 from typing import Any, Optional
-from game_engine import NumGame, DEFAULT_DIGIT_COUNT
-from help_string import get_help_string
-from high_scores import add_score, display_leaderboard
-from network_manager import NetworkManager, NetworkCallbacks
+from numbers_game.core import GameEngine as NumGame, DEFAULT_DIGIT_COUNT
+from numbers_game.utils import get_help_string
+from numbers_game.core import add_score, display_leaderboard
+from numbers_game.network import NetworkManager, NetworkCallbacks
 
 
 class NumbersGameGUI(ttk.Frame):

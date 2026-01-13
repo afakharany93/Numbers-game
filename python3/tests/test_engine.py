@@ -8,8 +8,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from numbers_game.core import GameEngine, DEFAULT_DIGIT_COUNT
-# Also support old import for backward compatibility
-from game_engine import NumGame
+from numbers_game.core.engine import NumGame  # Alias for backward compatibility
 
 
 class TestNumGameInit:
@@ -32,7 +31,7 @@ class TestNumGameInit:
             assert len(str(game.num)) == digits
             
     def test_backward_compatibility(self):
-        """Test that old NumGame import still works."""
+        """Test that NumGame alias still works."""
         game = NumGame()
         assert game.digit_count == 5
 

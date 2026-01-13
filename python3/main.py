@@ -13,8 +13,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ttkbootstrap as ttk
 
 # Import the main game GUI
-# For now, continue using the existing gui_numbers_game module
-# until all imports are updated
 from gui_numbers_game import NumbersGameGUI
 
 
