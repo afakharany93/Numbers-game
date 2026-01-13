@@ -16,6 +16,8 @@ pyinstaller --onefile \
     --windowed \
     --name "NumbersGame" \
     --add-data "numbers_game:numbers_game" \
+    --hidden-import="PIL._tkinter_finder" \
+    --collect-submodules PIL \
     main.py
 
 echo ""

@@ -99,12 +99,18 @@ Executable: `dist/NumbersGame.exe`
 ```bash
 # Install dependencies
 sudo apt-get install python3-pip python3-tk
-pip3 install pyinstaller ttkbootstrap
+pip3 install pyinstaller ttkbootstrap pillow
 
 # Build (or run build_linux.sh)
-pyinstaller --onefile --windowed --name "NumbersGame" --add-data "numbers_game:numbers_game" main.py
+pyinstaller --onefile --windowed --name "NumbersGame" \
+    --add-data "numbers_game:numbers_game" \
+    --hidden-import="PIL._tkinter_finder" \
+    --collect-submodules PIL \
+    main.py
 ```
 Executable: `dist/NumbersGame`
+
+> **Note**: The `--hidden-import` and `--collect-submodules` flags are required to fix PIL/Tkinter compatibility issues with ttkbootstrap's Meter widget.
 
 ## �👤 Author
 
