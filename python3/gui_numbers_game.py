@@ -7,9 +7,12 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
 from ttkbootstrap.dialogs import Messagebox
+from tkinter import simpledialog
+from typing import Any, Optional
 from game_engine import NumGame, DEFAULT_DIGIT_COUNT
 from help_string import get_help_string
 from high_scores import add_score, display_leaderboard
+from network_manager import NetworkManager, NetworkCallbacks
 
 
 class NumbersGameGUI(ttk.Frame):
@@ -35,6 +38,15 @@ class NumbersGameGUI(ttk.Frame):
         self.player2_won = False
         self.player1_secret = None  # Number set by Player 1 for Player 2 to guess
         self.player2_secret = None  # Number set by Player 2 for Player 1 to guess
+        
+        # Online mode state
+        self.online_mode = False
+        self.network: Optional[NetworkManager] = None
+        self.is_host = False
+        self.opponent_name = "Opponent"
+        self.my_online_secret: Optional[int] = None
+        self.online_p1_ready = False
+        self.online_p2_ready = False
         
         self.pack(fill=BOTH, expand=True)
         self.init_window()
@@ -122,13 +134,12 @@ class NumbersGameGUI(ttk.Frame):
         difficulty_combo.pack(side=LEFT)
         difficulty_combo.bind("<<ComboboxSelected>>", self._on_difficulty_change)
         
-        # Mode selector
         ttk.Label(diff_frame, text="  Mode:", font=("Segoe UI", 10)).pack(side=LEFT, padx=(15, 8))
         self.mode_var = ttk.StringVar(value="1 Player")
         mode_combo = ttk.Combobox(
             diff_frame,
             textvariable=self.mode_var,
-            values=["1 Player", "2 Players"],
+            values=["1 Player", "2 Players", "Online"],
             state="readonly",
             width=10,
             bootstyle="success"
@@ -306,8 +317,19 @@ class NumbersGameGUI(ttk.Frame):
 
     def _on_mode_change(self, event=None) -> None:
         """Handle game mode change."""
-        self.two_player_mode = self.mode_var.get() == "2 Players"
-        self.new_game()
+        mode = self.mode_var.get()
+        self.two_player_mode = mode == "2 Players"
+        self.online_mode = mode == "Online"
+        
+        # Disconnect existing network if switching away from Online
+        if self.network and not self.online_mode:
+            self.network.disconnect()
+            self.network = None
+            
+        if self.online_mode:
+            self._setup_online_game()
+        else:
+            self.new_game()
 
     def _setup_2player_game(self) -> None:
         """Set up a 2-player game with player names and secret numbers."""
@@ -317,6 +339,266 @@ class NumbersGameGUI(ttk.Frame):
         # Get secret numbers from each player
         self.player1_secret = self._ask_secret_number(self.player1_name, "for " + self.player2_name + " to guess")
         self.player2_secret = self._ask_secret_number(self.player2_name, "for " + self.player1_name + " to guess")
+
+    # ========================
+    # ONLINE MULTIPLAYER
+    # ========================
+    
+    def _setup_online_game(self) -> None:
+        """Set up online multiplayer game - show Host/Join dialog."""
+        # Reset online state
+        self.online_p1_ready = False
+        self.online_p2_ready = False
+        self.my_online_secret = None
+        
+        # Initialize network manager with callbacks
+        callbacks = NetworkCallbacks(
+            on_message=self._on_network_message,
+            on_connected=self._on_network_connected,
+            on_disconnected=self._on_network_disconnected
+        )
+        self.network = NetworkManager(callbacks)
+        
+        # Show Host/Join dialog
+        dialog = ttk.Toplevel(self.master)
+        dialog.title("🌐 Online Mode")
+        dialog.geometry("320x200")
+        dialog.transient(self.master)
+        dialog.grab_set()
+        
+        ttk.Label(
+            dialog, 
+            text="Online Multiplayer",
+            font=("Segoe UI", 14, "bold")
+        ).pack(pady=15)
+        
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(pady=10)
+        
+        def host():
+            dialog.destroy()
+            self._host_game()
+            
+        def join():
+            dialog.destroy()
+            self._join_game()
+            
+        def cancel():
+            dialog.destroy()
+            self.mode_var.set("1 Player")
+            self.online_mode = False
+            self.new_game()
+            
+        ttk.Button(
+            btn_frame, text="🏠 Host Game",
+            command=host, bootstyle="success", width=18
+        ).pack(pady=5)
+        
+        ttk.Button(
+            btn_frame, text="🔗 Join Game",
+            command=join, bootstyle="info", width=18
+        ).pack(pady=5)
+        
+        ttk.Button(
+            dialog, text="Cancel",
+            command=cancel, bootstyle="secondary"
+        ).pack(pady=10)
+        
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        self.master.wait_window(dialog)
+        
+    def _host_game(self) -> None:
+        """Start hosting a game."""
+        success, info = self.network.host_game()
+        
+        if success:
+            self.is_host = True
+            self._switch_to_single_view()
+            self._log(f"🌐 Hosting game on: {info}")
+            self._log("⏳ Waiting for opponent to connect...")
+            self.master.title(f"Numbers Game - Hosting on {info}")
+        else:
+            Messagebox.show_error(f"Failed to host: {info}", "Error")
+            self.mode_var.set("1 Player")
+            self.online_mode = False
+            self.new_game()
+            
+    def _join_game(self) -> None:
+        """Join a hosted game."""
+        ip = simpledialog.askstring(
+            "Join Game",
+            "Enter Host IP Address:",
+            parent=self.master
+        )
+        
+        if not ip:
+            self.mode_var.set("1 Player")
+            self.online_mode = False
+            self.new_game()
+            return
+            
+        success, info = self.network.join_game(ip.strip())
+        
+        if success:
+            self.is_host = False
+            self._switch_to_single_view()
+            self._log(f"🌐 Connecting to {ip}...")
+        else:
+            Messagebox.show_error(f"Connection failed: {info}", "Error")
+            self.mode_var.set("1 Player")
+            self.online_mode = False
+            self.new_game()
+            
+    def _on_network_connected(self, message: str) -> None:
+        """Handle successful network connection (called from network thread)."""
+        # Use after() for thread safety
+        self.after(0, lambda: self._handle_connected(message))
+        
+    def _handle_connected(self, message: str) -> None:
+        """Process connection on main thread."""
+        self._log(f"✅ {message}")
+        self.master.title("Numbers Game - Online Connected")
+        
+        # Get player name
+        name = simpledialog.askstring(
+            "Your Name",
+            "Enter your name:",
+            parent=self.master
+        ) or "Player"
+        
+        if self.is_host:
+            self.player1_name = name
+        else:
+            self.player2_name = name
+            
+        # Send name to opponent
+        self.network.send("NAME", name)
+        
+    def _on_network_disconnected(self, reason: str) -> None:
+        """Handle network disconnection (called from network thread)."""
+        self.after(0, lambda: self._handle_disconnected(reason))
+        
+    def _handle_disconnected(self, reason: str) -> None:
+        """Process disconnection on main thread."""
+        self._log(f"❌ Disconnected: {reason}")
+        Messagebox.show_warning(f"Disconnected: {reason}", "Connection Lost")
+        
+        # Reset to single player
+        self.online_mode = False
+        self.mode_var.set("1 Player")
+        self.network = None
+        self.master.title("🎮 Numbers Discovery Game")
+        self.new_game()
+        
+    def _on_network_message(self, msg_type: str, data: Any) -> None:
+        """Handle incoming network message (called from network thread)."""
+        # Use after() for thread safety - all GUI updates must be on main thread
+        self.after(0, lambda: self._handle_network_message(msg_type, data))
+        
+    def _handle_network_message(self, msg_type: str, data: Any) -> None:
+        """Process network message on main thread."""
+        if msg_type == "NAME":
+            # Opponent sent their name
+            self.opponent_name = data
+            if self.is_host:
+                self.player2_name = data
+                self._log(f"👤 Opponent joined: {data}")
+                # Host initiates game setup after a short delay
+                self.after(500, self._initiate_online_setup)
+            else:
+                self.player1_name = data
+                self._log(f"👤 Host: {data}")
+                
+        elif msg_type == "SETUP_REQ":
+            # Host requesting secret number setup
+            self._log("📝 Enter your secret number...")
+            self._request_online_secret()
+            
+        elif msg_type == "SECRET_SET":
+            # Opponent has set their secret number
+            self._log("🔒 Opponent is ready!")
+            if self.is_host:
+                self.online_p2_ready = True
+                self._check_start_online_game()
+                
+        elif msg_type == "START":
+            # Game is starting
+            self._log("\n🎮 Game Started!")
+            self._start_online_gameplay()
+            
+        elif msg_type == "GUESS":
+            # Opponent made a guess - check against my secret
+            guess = int(data)
+            count, place = self._compare_numbers(guess, self.my_online_secret)
+            
+            # Send result back
+            self.network.send("RESULT", {
+                "guess": data,
+                "count": count,
+                "place": place
+            })
+            
+            # Log opponent's guess
+            self._log(f"❓ {self.opponent_name} guessed: {data} → {count}/{place}")
+            
+            # Check if opponent won
+            if place == self.digit_count:
+                self._log(f"\n🏆 {self.opponent_name} wins!")
+                Messagebox.show_info(f"{self.opponent_name} cracked your code!", "Game Over")
+                
+        elif msg_type == "RESULT":
+            # Received result for my guess
+            guess = data["guess"]
+            count = data["count"]
+            place = data["place"]
+            
+            # Log my result
+            if place == self.digit_count:
+                self._log(f"🎉 {guess} → {count}/{place} - YOU WIN!")
+                Messagebox.show_info("You cracked the code!", "Victory!")
+            elif place > 0:
+                self._log(f"🟡 {guess} → {count}/{place}")
+            elif count > 0:
+                self._log(f"🟠 {guess} → {count}/{place}")
+            else:
+                self._log(f"⚫ {guess} → {count}/{place}")
+                
+    def _initiate_online_setup(self) -> None:
+        """Host sends setup request to both players."""
+        self.network.send("SETUP_REQ", self.digit_count)
+        self._log("📝 Enter your secret number...")
+        self._request_online_secret()
+        
+    def _request_online_secret(self) -> None:
+        """Ask user to enter their secret number for online play."""
+        my_name = self.player1_name if self.is_host else self.player2_name
+        num = self._ask_secret_number(my_name, "for opponent to guess")
+        self.my_online_secret = num
+        
+        # Notify opponent that I'm ready
+        self.network.send("SECRET_SET", True)
+        self._log("✅ Secret number set! Waiting for opponent...")
+        
+        if self.is_host:
+            self.online_p1_ready = True
+            self._check_start_online_game()
+            
+    def _check_start_online_game(self) -> None:
+        """Host checks if both players are ready to start."""
+        if self.is_host and self.online_p1_ready and self.online_p2_ready:
+            self.after(500, self._start_online_game)
+            
+    def _start_online_game(self) -> None:
+        """Host starts the online game."""
+        self.network.send("START", self.digit_count)
+        self._start_online_gameplay()
+        
+    def _start_online_gameplay(self) -> None:
+        """Initialize gameplay phase for online mode."""
+        self.current_player = 1
+        self.tries = 0
+        self._log(f"\n🎯 Guess your opponent's {self.digit_count}-digit number!")
+        self._log("Enter your guess below.\n")
 
     def _ask_player_names(self) -> None:
         """Ask for player names in 2-player mode."""
@@ -415,6 +697,13 @@ class NumbersGameGUI(ttk.Frame):
         
         if processed_val == 'e':
             self.give_up()
+            return
+        
+        # Handle Online mode - send guess to opponent
+        if self.online_mode and self.network and self.network.connected:
+            self.network.send("GUESS", str(processed_val))
+            self._log(f"📤 You guessed: {processed_val}")
+            self.tries += 1
             return
         
         # Handle 2-player mode with player-set numbers
