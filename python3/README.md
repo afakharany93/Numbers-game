@@ -82,7 +82,29 @@ python3/
 pytest tests/test_engine.py -v
 ```
 
-## 👤 Author
+## � Building Standalone Executables
+
+### Windows
+```bash
+# Install PyInstaller
+pip install pyinstaller
+
+# Build (or run build_windows.bat)
+pyinstaller --onefile --windowed --name "NumbersGame" --add-data "numbers_game;numbers_game" main.py
+```
+Executable: `dist/NumbersGame.exe`
+
+### Ubuntu/Linux
+```bash
+# Install dependencies
+sudo apt-get install python3-pip python3-tk
+pip3 install pyinstaller ttkbootstrap
+
+# Build (or run build_linux.sh)
+pyinstaller --onefile --windowed --name "NumbersGame" --add-data "numbers_game:numbers_game" main.py
+```
+Executable: `dist/NumbersGame`
+
+## �👤 Author
 
 Ahmed Essam El Fakharany - afakharany93@gmail.com
-
