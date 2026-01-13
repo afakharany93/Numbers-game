@@ -543,8 +543,15 @@ class NumbersGameGUI(ttk.Frame):
             
             # Check if opponent won
             if place == self.digit_count:
-                self._log(f"\n🏆 {self.opponent_name} wins!")
-                Messagebox.show_info(f"{self.opponent_name} cracked your code!", "Game Over")
+                if hasattr(self, 'i_won_online') and self.i_won_online:
+                    # I already won - now opponent also won = DRAW
+                    self._log(f"\n🤝 IT'S A DRAW!")
+                    Messagebox.show_info("Both players cracked the code!", "Draw!")
+                else:
+                    # Opponent won first - I get one more guess
+                    self.opponent_won_online = True
+                    self._log(f"\n🎯 {self.opponent_name} cracked your code!")
+                    self._log("⏳ You have one final guess for a draw!")
                 
         elif msg_type == "RESULT":
             # Received result for my guess
@@ -554,8 +561,23 @@ class NumbersGameGUI(ttk.Frame):
             
             # Log my result
             if place == self.digit_count:
-                self._log(f"🎉 {guess} → {count}/{place} - YOU WIN!")
-                Messagebox.show_info("You cracked the code!", "Victory!")
+                # I won!
+                if hasattr(self, 'opponent_won_online') and self.opponent_won_online:
+                    # Opponent already won - we both won = DRAW
+                    self._log(f"🎉 {guess} → {count}/{place}")
+                    self._log(f"\n🤝 IT'S A DRAW!")
+                    Messagebox.show_info("Both players cracked the code!", "Draw!")
+                else:
+                    # I won first - opponent gets one more guess
+                    self.i_won_online = True
+                    self._log(f"🎉 {guess} → {count}/{place}")
+                    self._log(f"\n🎯 You cracked the code!")
+                    self._log(f"⏳ Waiting for {self.opponent_name}'s final guess...")
+            elif hasattr(self, 'opponent_won_online') and self.opponent_won_online:
+                # I missed my final chance - opponent wins
+                self._log(f"⚫ {guess} → {count}/{place}")
+                self._log(f"\n🏆 {self.opponent_name} wins!")
+                Messagebox.show_info(f"{self.opponent_name} cracked your code!", "Game Over")
             elif place > 0:
                 self._log(f"🟡 {guess} → {count}/{place}")
             elif count > 0:
@@ -597,6 +619,9 @@ class NumbersGameGUI(ttk.Frame):
         """Initialize gameplay phase for online mode."""
         self.current_player = 1
         self.tries = 0
+        # Reset win tracking for fair play
+        self.i_won_online = False
+        self.opponent_won_online = False
         self._log(f"\n🎯 Guess your opponent's {self.digit_count}-digit number!")
         self._log("Enter your guess below.\n")
 
@@ -737,11 +762,34 @@ class NumbersGameGUI(ttk.Frame):
             self._update_stats()
             
             if count == place == self.digit_count:
-                self._handle_win()
+                # Player guessed correctly!
+                if self.current_player == 1:
+                    # P1 wins - but P2 gets one more chance for a draw
+                    self.player1_won = True
+                    self._log(f"\n🎯 {self.player1_name} cracked the code!", player=1)
+                    self._log(f"\n🎯 {self.player1_name} cracked the code!", player=2)
+                    self._log(f"⏳ {self.player2_name} gets one final guess...", player=1)
+                    self._log(f"⏳ {self.player2_name} gets one final guess for a draw!", player=2)
+                    self.current_player = 2
+                    self._update_player_indicator()
+                else:
+                    # P2 guessed correctly
+                    self.player2_won = True
+                    if self.player1_won:
+                        # Both won with same tries - DRAW!
+                        self._handle_draw()
+                    else:
+                        # P2 wins outright
+                        self._handle_win()
             else:
-                # Switch players
-                self.current_player = 2 if self.current_player == 1 else 1
-                self._update_player_indicator()
+                # Incorrect guess
+                if self.current_player == 2 and self.player1_won:
+                    # P2 failed their final guess - P1 wins
+                    self._handle_win(winner=1)
+                else:
+                    # Switch players
+                    self.current_player = 2 if self.current_player == 1 else 1
+                    self._update_player_indicator()
         else:
             # Single player mode
             self.tries += 1
@@ -779,13 +827,17 @@ class NumbersGameGUI(ttk.Frame):
                         place += 1
         return count, place
 
-    def _handle_win(self) -> None:
+    def _handle_win(self, winner: int = None) -> None:
         """Handle winning the game."""
         if self.two_player_mode:
-            winner_name = self.player1_name if self.current_player == 1 else self.player2_name
-            loser_name = self.player2_name if self.current_player == 1 else self.player1_name
-            winner_tries = self.player1_tries if self.current_player == 1 else self.player2_tries
-            cracked_number = self.player2_secret if self.current_player == 1 else self.player1_secret
+            # Determine winner
+            if winner is None:
+                winner = self.current_player
+                
+            winner_name = self.player1_name if winner == 1 else self.player2_name
+            loser_name = self.player2_name if winner == 1 else self.player1_name
+            winner_tries = self.player1_tries if winner == 1 else self.player2_tries
+            cracked_number = self.player2_secret if winner == 1 else self.player1_secret
             score = max(1, 100 - winner_tries + 1)
             
             self._log(f"\n🎊 {winner_name} WINS!", player=1)
@@ -813,6 +865,17 @@ class NumbersGameGUI(ttk.Frame):
             
             if Messagebox.yesno(f"You won with score {score}!\n\nPlay again?", "🎉 Congratulations!"):
                 self.new_game()
+
+    def _handle_draw(self) -> None:
+        """Handle a draw when both players crack the code on the same turn."""
+        self._log(f"\n🤝 IT'S A DRAW!", player=1)
+        self._log(f"Both players cracked the code in {self.player1_tries} tries!", player=1)
+        
+        self._log(f"\n🤝 IT'S A DRAW!", player=2)
+        self._log(f"Both players cracked the code in {self.player2_tries} tries!", player=2)
+        
+        if Messagebox.yesno("It's a draw! Both players cracked the code!\n\nPlay again?", "🤝 Draw!"):
+            self.new_game()
 
     def _update_player_indicator(self) -> None:
         """Update the current player indicator."""
