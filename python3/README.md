@@ -30,12 +30,12 @@ pip install -r requirements.txt
 
 ### GUI Version (Recommended)
 ```bash
-python gui_numbers_game.py
+python main.py
 ```
 
 ### Command Line Version
 ```bash
-python cli_numbers_game.py
+python -m numbers_game.ui.cli
 ```
 
 ## 🎮 Game Modes
@@ -43,7 +43,8 @@ python cli_numbers_game.py
 | Mode | Description |
 |------|-------------|
 | **1 Player** | Guess the computer's random number |
-| **2 Players** | Each player sets a secret number for the other to guess. First to crack wins! Split-screen view shows each player's progress. |
+| **2 Players** | Each player sets a secret number for the other to guess. Fair play: if one cracks the code, the other gets one final guess! |
+| **Online** | Play over LAN - one hosts, the other joins by IP |
 
 ## 🏆 Difficulty Levels
 
@@ -53,32 +54,35 @@ python cli_numbers_game.py
 | Medium | 5 | 10000-99999 |
 | Hard | 6 | 100000-999999 |
 
-## 🎮 Commands (CLI)
-
-| Command | Action |
-|---------|--------|
-| `e` | Exit and reveal the answer |
-| `h` | Get a hint (costs 5 points) |
-| `r` | Restart the current game |
-
 ## 📁 Project Structure
 
 ```
 python3/
-├── game_engine.py      # Core game logic
-├── cli_numbers_game.py # Command-line interface
-├── gui_numbers_game.py # Modern Tkinter GUI
-├── help_string.py      # Game instructions
-├── high_scores.py      # Score persistence
-└── test_game_engine.py # Unit tests (17 tests)
+├── main.py                    # GUI entry point
+├── numbers_game/              # Main package
+│   ├── core/                  # Game logic
+│   │   ├── engine.py         # GameEngine class
+│   │   └── high_scores.py    # Score persistence
+│   ├── network/               # Online multiplayer
+│   │   └── manager.py        # NetworkManager class
+│   ├── ui/                    # User interfaces
+│   │   ├── cli.py            # CLI version
+│   │   └── thinking_area.py  # Helper window
+│   └── utils/                 # Utilities
+│       └── help_text.py      # Game instructions
+├── tests/                     # Unit tests (18 tests)
+│   └── test_engine.py
+├── game_engine.py             # Legacy (backward compat)
+└── gui_numbers_game.py        # Legacy GUI entry point
 ```
 
 ## 🧪 Running Tests
 
 ```bash
-pytest test_game_engine.py -v
+pytest tests/test_engine.py -v
 ```
 
 ## 👤 Author
 
 Ahmed Essam El Fakharany - afakharany93@gmail.com
+
