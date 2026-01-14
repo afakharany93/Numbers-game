@@ -48,6 +48,9 @@ class NumbersGameGUI(ttk.Frame):
         self.online_p1_ready = False
         self.online_p2_ready = False
         
+        # Theme state
+        self.dark_mode = False
+        
         self.pack(fill=BOTH, expand=True)
         self.init_window()
 
@@ -93,6 +96,16 @@ class NumbersGameGUI(ttk.Frame):
             bootstyle="success"
         )
         self.stats_meter.pack(side=RIGHT, padx=10)
+        
+        # Theme toggle button
+        self.theme_btn = ttk.Button(
+            header,
+            text="🌙",
+            command=self._toggle_theme,
+            bootstyle="secondary-outline",
+            width=3
+        )
+        self.theme_btn.pack(side=RIGHT, padx=5)
         
         # Tries label
         self.tries_label = ttk.Label(
@@ -297,6 +310,16 @@ class NumbersGameGUI(ttk.Frame):
         """Switch back to single log view."""
         self.split_log_frame.pack_forget()
         self.single_log_frame.pack(fill=BOTH, expand=True)
+
+    def _toggle_theme(self) -> None:
+        """Toggle between light and dark theme."""
+        self.dark_mode = not self.dark_mode
+        if self.dark_mode:
+            self.master.style.theme_use("darkly")
+            self.theme_btn.config(text="☀️")
+        else:
+            self.master.style.theme_use("flatly")
+            self.theme_btn.config(text="🌙")
 
     def _update_stats(self) -> None:
         """Update the stats display."""
